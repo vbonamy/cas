@@ -103,10 +103,7 @@ public class MongoDbTicketRegistryFacilitator {
                 val expireIndex = new Index()
                     .named(INDEX_NAME_EXPIRATION)
                     .on(MongoDbTicketDocument.FIELD_NAME_EXPIRE_AT, Sort.Direction.ASC);
-                val timeout = ticket.getProperties().getStorageTimeout();
-                if (timeout > 0 && timeout != Long.MAX_VALUE) {
-                    expireIndex.expire(Duration.ofSeconds(timeout));
-                }
+                expireIndex.expire(0);                
                 expectedIndexes.add(expireIndex);
             }
 
