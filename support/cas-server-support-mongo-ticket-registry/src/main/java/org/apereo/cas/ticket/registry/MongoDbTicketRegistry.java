@@ -66,12 +66,17 @@ public class MongoDbTicketRegistry extends AbstractTicketRegistry {
     private static Date getExpireAt(final Ticket ticket) {
         val expirationPolicy = ticket.getExpirationPolicy();
         val ttl = expirationPolicy.getTimeToLive(ticket);
-        if (ttl < 1 || ttl == Long.MAX_VALUE) {
-            LOGGER.trace("Expiration date is undefined for ttl value [{}]", ttl);
+        val tti = expirationPolicy.getTimeToIdle();
+        val expireAtTti = tti>0 && tti != Long.MAX_VALUE ? System.currentTimeMillis() + TimeUnit.SECONDS.toMillis(tti) : -1;
+        val expireAtTtl = ttl>0 && ttl != Long.MAX_VALUE ? ticket.getCreationTime().toInstant().toEpochMilli() + TimeUnit.SECONDS.toMillis(ttl) : -1;
+        val maxExpireAt = Math.max(expireAtTti, expireAtTtl);
+        if (maxExpireAt == -1) {
+            LOGGER.trace("Expiration date for [{}] is undefined for tti value [{}] / ttl value [{}]", ticket.getId(), tti, ttl);
             return null;
         }
-        val exp = System.currentTimeMillis() + TimeUnit.SECONDS.toMillis(ttl);
-        return DateTimeUtils.dateOf(Instant.ofEpochMilli(exp));
+        val expireAt = DateTimeUtils.dateOf(Instant.ofEpochMilli(maxExpireAt));
+        LOGGER.trace("Expiration date for [{}] : [{}]", ticket.getId(), expireAt);
+        return DateTimeUtils.dateOf(Instant.ofEpochMilli(maxExpireAt));
     }
 
     @Override
@@ -168,7 +173,8 @@ public class MongoDbTicketRegistry extends AbstractTicketRegistry {
             LOGGER.debug("Located ticket definition [{}] in the ticket catalog", metadata);
             val collectionName = getTicketCollectionInstanceByMetadata(metadata);
             val query = new Query(Criteria.where(MongoDbTicketDocument.FIELD_NAME_ID).is(holder.getTicketId()));
-            val update = Update.update(MongoDbTicketDocument.FIELD_NAME_JSON, holder.getJson());
+            val update = Update.update(MongoDbTicketDocument.FIELD_NAME_JSON, holder.getJson()); 
+            update.set(MongoDbTicketDocument.FIELD_NAME_EXPIRE_AT, holder.getExpireAt());           
             val result = mongoTemplate.updateFirst(query, update, collectionName);
             LOGGER.debug("Updated ticket [{}] with result [{}]", ticket, result);
             return result.getMatchedCount() > 0 ? ticket : null;

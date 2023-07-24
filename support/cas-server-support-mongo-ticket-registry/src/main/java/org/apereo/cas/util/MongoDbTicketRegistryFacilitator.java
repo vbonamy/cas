@@ -16,7 +16,6 @@ import org.springframework.data.mongodb.core.index.Index;
 import org.springframework.data.mongodb.core.index.IndexDefinition;
 import org.springframework.data.mongodb.core.index.TextIndexDefinition;
 
-import java.time.Duration;
 import java.util.ArrayList;
 
 /**
@@ -68,11 +67,7 @@ public class MongoDbTicketRegistryFacilitator {
                 .onField(MongoDbTicketDocument.FIELD_NAME_ID)
                 .build();
             val expireIndex = new Index().on(MongoDbTicketDocument.FIELD_NAME_EXPIRE_AT, Sort.Direction.ASC);
-            
-            val timeout = ticket.getProperties().getStorageTimeout();
-            if (timeout > 0 && timeout != Long.MAX_VALUE) {
-                expireIndex.expire(Duration.ofSeconds(timeout));
-            }
+            expireIndex.expire(0);
 
             val expectedIndexes = new ArrayList<IndexDefinition>();
             expectedIndexes.add(expireIndex);
